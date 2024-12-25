@@ -8,6 +8,7 @@ E-mail:   jonny@leffe.dnsalias.com
 
 */
 
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -78,9 +79,9 @@ typedef struct{
 AVI_chunk c;
 
 unsigned long aac_codec_buffer[2048] __attribute__((aligned(64)));
-u8 aac_data_buffer0[8*1024] __attribute__((aligned(64)));
-u8 aac_data_buffer1[8*1024] __attribute__((aligned(64)));
-short pcm_output_buffer[2][16*1024] __attribute__((aligned(64)));
+u8 aac_data_buffer0[2048] __attribute__((aligned(64)));
+u8 aac_data_buffer1[2048] __attribute__((aligned(64)));
+short pcm_output_buffer[2][4096] __attribute__((aligned(64)));
 int pcm_output_index = 0;
 SceUID aac_handle;
 u32 aac_sample_per_frame;
@@ -214,13 +215,22 @@ int Set_AAC_Decoder(){
 	if (sceAudiocodecCheckNeedMem(aac_codec_buffer, 0x1003) < 0) return 0;
 	if (sceAudiocodecGetEDRAM(aac_codec_buffer, 0x1003) < 0 ) return 0;
 	aac_getEDRAM = 1;
-	aac_codec_buffer[9] = 1024 * 4;
 	aac_codec_buffer[10] = 44100;
 	if (sceAudiocodecInit(aac_codec_buffer, 0x1003) < 0) return 0;
 	audio_channel = sceAudioChReserve(0,1024, PSP_AUDIO_FORMAT_STEREO); 
 	return 1;
 }
 
+int Set_MP3_Decoder(){
+	memset(aac_codec_buffer, 0, sizeof(aac_codec_buffer));
+	if ( sceAudiocodecCheckNeedMem(aac_codec_buffer, 0x1002) < 0 ) return -1;
+	if ( sceAudiocodecGetEDRAM(aac_codec_buffer, 0x1002) < 0 ) return -1;
+	if ( sceAudiocodecInit(aac_codec_buffer, 0x1002) < 0 ) return -1;
+	
+	audio_channel = sceAudioChReserve(0,0x1000, PSP_AUDIO_FORMAT_STEREO); 
+    
+	return 1;
+}
 
 //Decode threads
 int decode_audio(){
@@ -229,10 +239,32 @@ int decode_audio(){
 		aac_codec_buffer[6] = (unsigned long)aac_data_buffer0;
 		aac_codec_buffer[7] = c.size;
 		aac_codec_buffer[8] = (unsigned long)pcm_output_buffer[pcm_output_index&1];
-		sceAudiocodecDecode(aac_codec_buffer, 0x1003);
+		aac_codec_buffer[9] = 1024;
+		if ( sceAudiocodecDecode(aac_codec_buffer, 0x1003) < 0){
+			//It did not decode any sound, or corrupt
+			sceKernelDelayThread(100);//removed clicks on real psp
+			memset(&pcm_output_buffer[pcm_output_index&1], 0, 2048);
+		} else {
+			//It decoded sound, play it
+			sceKernelDelayThread(100);//removed clicks on real psp
+			sceAudioOutputBlocking(audio_channel, PSP_AUDIO_VOLUME_MAX, pcm_output_buffer[pcm_output_index&1]);
+			pcm_output_index++;
+		}
+	}
+	return 0;
+}
+
+int decode_MP3(){
+	while(1){
+		aac_codec_buffer[6] = (unsigned long)aac_data_buffer0;
+		aac_codec_buffer[8] = (unsigned long)pcm_output_buffer[pcm_output_index&1];
+		aac_codec_buffer[7] = aac_codec_buffer[10] = c.size;
+		aac_codec_buffer[9] = 0x1200;
+    
+		if ( sceAudiocodecDecode(aac_codec_buffer, 0x1002) < 0 )
+			memset(aac_codec_buffer, 0, 0x1200);
 		sceAudioOutputBlocking(audio_channel, PSP_AUDIO_VOLUME_MAX, pcm_output_buffer[pcm_output_index&1]);
 		pcm_output_index++;
-		//sceKernelDelayThread(10000);
 	}
 	return 0;
 }
@@ -243,10 +275,12 @@ int decode_video(){
 		void *destination_buffer = (void*)(0x04000000+framebuffer);
 		CopyAu2Me(&v_decode, &H264_RingBuffer[a_offset],H264_max_frame_size);
 		v_decode.mpeg_au.iAuSize = H264_max_frame_size;
-		sceMpegAvcDecode(&v_decode.mpeg,&v_decode.mpeg_au,v_decode.mpeg_width,&destination_buffer,&unused);
-		sceKernelDcacheWritebackInvalidateAll();
-		sceDisplayWaitVblankStart();
-		framebuffer = sceGuSwapBuffers();
+		int result = sceMpegAvcDecode(&v_decode.mpeg,&v_decode.mpeg_au,v_decode.mpeg_width,&destination_buffer,&unused);
+		if (result == 0){//It decoded a frame, show it
+			sceKernelDcacheWritebackInvalidateAll();
+			sceDisplayWaitVblankStart();
+			framebuffer = sceGuSwapBuffers();
+		}
 		//sceKernelDelayThread(10000);
 	}
 	return 0;
@@ -258,7 +292,7 @@ u32 next_pow2(u32 v){
 	v-=1;v|=(v>>1);v|=(v>>2);v|=(v>>4);v|=(v>>8);v|=(v>>16);return(v+1);
 }
 
-int AMG_Load_AVI(char *path){
+int Load_Play_AVI(char *path,u32 button){
 	int current_video_frame = 0;
 	int loop_buffer = 0;
 	int loop_frames = H264_Buffer_Frames/2;
@@ -307,6 +341,16 @@ int AMG_Load_AVI(char *path){
 	sceIoRead(_AVI_FILE,&AVI_Width,4);
 	sceIoRead(_AVI_FILE,&AVI_Height,4);
 	
+	//check size
+	if((AVI_Width<769)&&(AVI_Height<513)){
+		AVI_WidthP2 =  (AVI_Width);
+		AVI_HeightP2 = next_pow2(AVI_Height);
+		if (AVI_Width > 512) {
+			AVI_WidthP2 = 768;
+			AVI_HeightP2 = 512;
+		}
+	} else return 0;
+
 	//look for movi
 	u32 offset2 = sceIoLseek32(_AVI_FILE,movi_offset,SEEK_SET);
 	while (!movi){
@@ -412,33 +456,33 @@ int AMG_Load_AVI(char *path){
 					goto read_again;
 					//sceIoWaitAsync(_AVI_FILE,&result);
 				}
+				SceCtrlData pad;
+				sceCtrlReadBufferPositive(&pad, 1);
+				if (pad.Buttons & button) {
+					sceKernelSignalSema(AVI_Video_SemaID, 0);
+					sceKernelSignalSema(AVI_Audio_SemaID, 0);
+					sceKernelDelayThread(10000);
+					break;
+				}
 			}
 		}
 	} else {
 		return 0;
 	}
  
-	if((AVI_Width<769)&&(AVI_Height<513)){
-		AVI_WidthP2 =  (AVI_Width);
-		AVI_HeightP2 = next_pow2(AVI_Height);
-		if (AVI_Width > 512) {
-			AVI_WidthP2 = 768;
-			AVI_HeightP2 = 512;
-		}
-	} else return 0;
-	
 	h264_close(&v_decode);
 	sceIoClose(_AVI_FILE);
-	sceKernelWaitThreadEnd(AVI_H264_thread, 0);
+	//they will never end, so we kill them
+	//sceKernelWaitThreadEnd(AVI_H264_thread, 0);
+	//sceKernelWaitThreadEnd(AVI_AAC_thread, 0);
 	sceKernelDeleteThread(AVI_H264_thread);
-	sceKernelWaitThreadEnd(AVI_AAC_thread, 0);
 	sceKernelDeleteThread(AVI_AAC_thread);
 	if (aac_getEDRAM) sceAudiocodecReleaseEDRAM(aac_codec_buffer);
 	return 1;
 }
 
 
-PSP_MODULE_INFO("triPMPTest", 0, 1, 1);
+PSP_MODULE_INFO("H264_Test", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 PSP_HEAP_SIZE_KB(-1024);
 
@@ -448,6 +492,9 @@ PSP_HEAP_SIZE_KB(-1024);
 
 int main(int argc, char **argv){
 
+	//Controls
+	sceCtrlSetSamplingCycle(0);
+
 	// setup
 	fbp0 = (void*)0;
 	fbp1 = (void*)0x88000;
@@ -455,8 +502,8 @@ int main(int argc, char **argv){
 
 	framebuffer = fbp1;
 	pspDebugScreenInit();
+	
 	sceGuInit();
-
 	sceGuStart(GU_DIRECT,list);
 	sceGuDrawBuffer(GU_PSM_8888,fbp1,BUF_WIDTH);
 	sceGuDispBuffer(SCR_WIDTH,SCR_HEIGHT,fbp0,BUF_WIDTH);
@@ -480,7 +527,7 @@ int main(int argc, char **argv){
 	sceUtilityLoadAvModule(PSP_AV_MODULE_MPEGBASE);// Requires PSP_AV_MODULE_AVCODEC loading first
 	sceUtilityLoadAvModule(PSP_AV_MODULE_MP3);
 	
-	AMG_Load_AVI("psp_video.avi");
+	Load_Play_AVI("psp_video.avi",PSP_CTRL_TRIANGLE);//Exit pressing triangle
 
 	sceKernelExitGame();
 	return 0;
