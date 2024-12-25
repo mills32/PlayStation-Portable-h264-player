@@ -1,3 +1,13 @@
+/*
+Based on an old homebrew created by "jonny"
+
+These are long dead but I include them:
+
+Homepage: http://jonny.leffe.dnsalias.com
+E-mail:   jonny@leffe.dnsalias.com
+
+*/
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
