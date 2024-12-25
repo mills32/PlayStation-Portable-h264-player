@@ -11,9 +11,12 @@ BUGS
 ----
 
 - 720x480 videos don't work.
-- 60 fps videos should work OK as long as bitrate is 300kbps or lower.
 - Not all h264 parameters will work, "convert_PSP.bat" contains all parameters configured, in case you want to use other video converter.
-
+- Videos will hang the PSP if for some reason it can't read a frame in time:
+    A: CPU speed set to power save
+    B: memory stick is too slow
+    C: 60 fps videos set to bitratte bigger than 300-350kbps (depending on the sdcard/memory stick pressent)
+- PSP will hang at the end of the video (working on it).
 
 REPRODUCTOR DE VIDEOS H264 PARA PSP
 -----------------------------------
@@ -29,6 +32,10 @@ PROBLEMAS
 ---------
 
 - Videos de tamaño 720x480 no funcionan.
-- Videos a 60 fps deberían funcionar bien mientras la tasa de bits sea 300kbps o inferior
 - No todos los parámetros h264 funcionan, "convert_PSP.bat" contiene todos los parámetros configurados si quieres utilizar otro conversor.
+- La PSP se cuelga si por alguna razón no puede leer a tiempo un frame:
+    A: CPU en modo ahorro
+    B: La memory stick es demasiado lenta
+    C: Videos a 60 fps con tasas de bits mayores a 300-350kbps (depende de la sdcard/memory stick presente)
+- La PSP se cuelga al terminar el video (trabajando en ello)
 
