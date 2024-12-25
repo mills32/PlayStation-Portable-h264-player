@@ -451,7 +451,7 @@ int Load_Play_AVI(char *path,u32 button){
 				if (c.name == WB) {
 					sceIoLseek32(_AVI_FILE,c.offset+AVI_relative_offset, PSP_SEEK_SET);
 					sceIoRead(_AVI_FILE,aac_data_buffer0,c.size);
-					sceKernelSignalSema(AVI_Audio_SemaID, 1);//Tell ME to decode 2 audio AAC frames
+					sceKernelSignalSema(AVI_Audio_SemaID, 1);//Tell ME to decode an audio AAC frame
 					size+=16;
 					goto read_again;
 					//sceIoWaitAsync(_AVI_FILE,&result);
