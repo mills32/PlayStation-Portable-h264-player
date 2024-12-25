@@ -6,6 +6,7 @@ There are some homebrew h264 players for PSP but the code is so complex I decide
 
 Drop any video to convert_PSP.bat to convert videos using ffmpeg (place ffmpeg.exe in the same folder for windows, if you use linux you probably know how what to do).
 Videos will be cropped/resized and black bars will be added if necessary to preserve video aspect ratio.
+Press triangle to exit program.
 
 I tested with some of these: https://studio.blender.org/films/ and they work fine. (big buck bunny at 60 fps is also working well)
 
@@ -19,7 +20,6 @@ BUGS
     A: CPU speed set to power save
     B: memory stick is too slow
     C: 60 fps videos set to bitratte bigger than 300-350kbps (depending on the sdcard/memory stick pressent)
-- PSP will hang at the end of the video (working on it).
 
 REPRODUCTOR DE VIDEOS H264 PARA PSP
 -----------------------------------
@@ -29,6 +29,7 @@ Hay otros reproductores de h264 para PSP, pero el código es tan complicado que 
 
 Arrastra cualquier video a convert_PSP.bat para convertirlo usando ffmpeg (copia ffmpeg.exe al mismo directorio en windows, si usas linux, es probable que ya sepas qué hacer).
 Los videos seran escalados/recortados y se añadirán bandas negras si es necesario, para mantener la relación de aspecto.
+Pulsa triangulo para salir del programa.
 
 Lo he probado con algunos de estos videos: https://studio.blender.org/films/. (big buck bunny a 60fps funciona muy bien).
 
@@ -41,5 +42,4 @@ PROBLEMAS
     A: CPU en modo ahorro
     B: La memory stick es demasiado lenta
     C: Videos a 60 fps con tasas de bits mayores a 300-350kbps (depende de la sdcard/memory stick presente)
-- La PSP se cuelga al terminar el video (trabajando en ello)
 
