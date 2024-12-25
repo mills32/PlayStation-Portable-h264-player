@@ -12,7 +12,7 @@ BUGS
 
 - 720x480 videos don't work.
 - 60 fps videos should work OK as long as bitrate is 300kbps or lower.
-- Not all h264 parameters will work, "convert_PSP.bat" contains all parameters configured, in case you whant to use other video converter.
+- Not all h264 parameters will work, "convert_PSP.bat" contains all parameters configured, in case you want to use other video converter.
 
 
 REPRODUCTOR DE VIDEOS H264 PARA PSP
