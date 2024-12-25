@@ -2,7 +2,7 @@ H264 SIMPLE PLAYER FOR PSP
 --------------------------
 
 This plays video files in AVI format, containing h264 frames and AAC audio (I have to add MP3 audio).
-There are some homebrew h264 players for PSP but the code is so complex I decided to crate this as a sample code.
+There are some homebrew h264 players for PSP but the code is so complex I decided to create this as a sample code.
 
 Drop any video to convert_PSP.bat to convert videos using ffmpeg (windows). If you use linux you probably know how what to do.
 Videos will be cropped/resized and black bars will be added if necessary to preserve video aspect ratio.
