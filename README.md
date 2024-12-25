@@ -4,7 +4,7 @@ H264 SIMPLE PLAYER FOR PSP
 This plays video files in AVI format, containing h264 frames and AAC audio (I have to add MP3 audio).
 There are some homebrew h264 players for PSP but the code is so complex I decided to create this as a sample code.
 
-Drop any video to convert_PSP.bat to convert videos using ffmpeg (windows). If you use linux you probably know how what to do.
+Drop any video to convert_PSP.bat to convert videos using ffmpeg (place ffmpeg.exe in the same folder for windows, if you use linux you probably know how what to do).
 Videos will be cropped/resized and black bars will be added if necessary to preserve video aspect ratio.
 
 I tested with some of these: https://studio.blender.org/films/ and they work fine. (big buck bunny at 60 fps is also working well)
@@ -27,7 +27,7 @@ REPRODUCTOR DE VIDEOS H264 PARA PSP
 Éste programa reproduce videos en formato avi, conteniendo frames h264 y audio AAC (tengo que añadir MP3).
 Hay otros reproductores de h264 para PSP, pero el código es tan complicado que decidí crear un ejemplo más simple.
 
-Arrastra cualquier video a convert_PSP.bat para convertirlo usando ffmpeg (windows). Si usas linux, es probable que ya sepas qué hacer.
+Arrastra cualquier video a convert_PSP.bat para convertirlo usando ffmpeg (copia ffmpeg.exe al mismo directorio en windows, si usas linux, es probable que ya sepas qué hacer).
 Los videos seran escalados/recortados y se añadirán bandas negras si es necesario, para mantener la relación de aspecto.
 
 Lo he probado con algunos de estos videos: https://studio.blender.org/films/. (big buck bunny a 60fps funciona muy bien).
