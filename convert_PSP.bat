@@ -1,6 +1,6 @@
 @echo off
 SET VIDEO_NAME=%1%
-rem x264 parameters PSP VSH & HOMEBREW PMPLAYER
+rem x264 parameters PSP MENU & HOMEBREW PLAYER
 SET S1=cabac=1:ref=2:deblock=1,0,0:analyse=0x3,0x131:me=dia:subme=7
 SET S2=%S1%:psy=1:psy_rd=1.00,0.00:mixed-refs=1:me_range=16:chroma_me=1
 SET S3=%S2%:trellis=1:8x8dct=0:cqm_preset=0:deadzone-inter=21:deadzone-intra=11:fast_pskip=1:chroma_qp_offset=-2
