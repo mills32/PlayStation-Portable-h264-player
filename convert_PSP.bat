@@ -74,5 +74,5 @@ if %RATE% equ 3 (set BITRATE=:bitrate=600)
 if %RATE% equ 4 (set BITRATE=:bitrate=1100)
 
 
-ffmpeg -i %VIDEO_NAME% -c:v libx264 -profile:v main %SIZE_FILTERS% -x264-params "%_OPT%%GOPS%%BITRATE%" %AUDIO_FORMAT% %TRIM% psp_video.%CONTAINER%
+ffmpeg -i %VIDEO_NAME% -c:v libx264 -profile:v main %SIZE_FILTERS% -x264-params "%_OPT%%GOPS%%BITRATE%" %AUDIO_FORMAT% psp_video.%CONTAINER%
 pause
