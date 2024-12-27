@@ -123,9 +123,9 @@ int audio_channel;
 SceInt32 unused;
 SceInt32 sceMpegbase_BEA18F91(struct SceMpegLLI *p);
 
-#define H264_Buffer_Frames			6
-#define H264_max_frame_size			0xFFFF	//For I frames, x4 for 720x480
-#define H264_buffer_size			H264_max_frame_size	* H264_Buffer_Frames
+u32 H264_Buffer_Frames		=	6;
+u32 H264_max_frame_size		=	0xFFFF;	//For I frames, x4 for 720x480
+u32 H264_buffer_size		=	0xFFFF	* 6;
 
 //We just need a buffer of raw h264 frames (and their sizes), each aligned to 64 bytes,
 //then "sceMpegAvcDecode" will do everything for us
@@ -166,7 +166,7 @@ void h264_close(struct avc_struct *p){
 	if (p->mpeg_data != 0) free(p->mpeg_data);
 }
 
-int Set_H264_Decoder(struct avc_struct *p, unsigned int maximum_frame_size, int bufwidth, int format){
+int Set_H264_Decoder(struct avc_struct *p, int bufwidth, int format){
 	int mod_64 = 0;
 	u32 DMABLOCK = 4095;
 	p->mpeg_init = -1;
@@ -197,7 +197,7 @@ int Set_H264_Decoder(struct avc_struct *p, unsigned int maximum_frame_size, int 
 	avc_mode.iPixelFormat = p->mpeg_format;
 	p->mpeg_format = avc_mode.iPixelFormat;
 	p->mpeg_es = sceMpegMallocAvcEsBuf(&p->mpeg);
-	unsigned int maximum_number_of_blocks = (maximum_frame_size + DMABLOCK - 1) / DMABLOCK;
+	unsigned int maximum_number_of_blocks = (4096 + DMABLOCK - 1) / DMABLOCK;
 	
 	//Malloc 64 aligned
 	size = sizeof(struct SceMpegLLI) * maximum_number_of_blocks;
@@ -235,14 +235,15 @@ int Set_MP3_Decoder(){
 //Decode threads
 int decode_audio(){
 	while(1){
-		sceKernelWaitSema(AVI_Audio_SemaID, 1, 0);
+		sceKernelWaitSema(AVI_Audio_SemaID, 1,0);
+		//sceKernelWaitSema(AVI_Video_SemaID, 0,0);
 		aac_codec_buffer[6] = (unsigned long)aac_data_buffer0;
 		aac_codec_buffer[7] = c.size;
 		aac_codec_buffer[8] = (unsigned long)pcm_output_buffer[pcm_output_index&1];
 		aac_codec_buffer[9] = 1024;
 		if ( sceAudiocodecDecode(aac_codec_buffer, 0x1003) < 0){
 			//It did not decode any sound, or corrupt
-			sceKernelDelayThread(100);//removed clicks on real psp
+			//sceKernelDelayThread(100);//removed clicks on real psp
 			memset(&pcm_output_buffer[pcm_output_index&1], 0, 2048);
 		} else {
 			//It decoded sound, play it
@@ -250,6 +251,7 @@ int decode_audio(){
 			sceAudioOutputBlocking(audio_channel, PSP_AUDIO_VOLUME_MAX, pcm_output_buffer[pcm_output_index&1]);
 			pcm_output_index++;
 		}
+		sceKernelSignalSema(AVI_Audio_SemaID, 0);
 	}
 	return 0;
 }
@@ -271,7 +273,7 @@ int decode_MP3(){
 
 int decode_video(){
 	while(1){
-		sceKernelWaitSema(AVI_Video_SemaID, 1, 0);
+		sceKernelWaitSema(AVI_Video_SemaID, 1,0);
 		void *destination_buffer = (void*)(0x04000000+framebuffer);
 		CopyAu2Me(&v_decode, &H264_RingBuffer[a_offset],H264_max_frame_size);
 		v_decode.mpeg_au.iAuSize = H264_max_frame_size;
@@ -280,16 +282,44 @@ int decode_video(){
 			sceKernelDcacheWritebackInvalidateAll();
 			sceDisplayWaitVblankStart();
 			framebuffer = sceGuSwapBuffers();
+			
+		} else {
+			//pspDebugScreenPrintf("DECODE ERROR\n");
+			//sceKernelDelayThread(10000*6);
+			//sceKernelExitGame();
 		}
-		//sceKernelDelayThread(10000);
+		sceKernelSignalSema(AVI_Video_SemaID, 0);
+		//sceKernelDelayThread(100);
 	}
 	return 0;
 }
 
+void setup_GPU(u32 buf_width,u32 screen_width, u32 screen_height){
 
-//next power of two (from pmp player)
-u32 next_pow2(u32 v){
-	v-=1;v|=(v>>1);v|=(v>>2);v|=(v>>4);v|=(v>>8);v|=(v>>16);return(v+1);
+	fbp0 = (void*)0;
+	
+	fbp1 = (void*)(buf_width*screen_width*4);
+	zbp = (void*)(buf_width*screen_width*8);
+
+	framebuffer = fbp1;
+	pspDebugScreenInit();
+	
+	sceGuInit();
+	sceGuStart(GU_DIRECT,list);
+	sceGuDrawBuffer(GU_PSM_8888,fbp1,buf_width);
+	
+	sceGuDispBuffer(screen_width,screen_height,fbp0,buf_width);
+	sceGuDepthBuffer(zbp,buf_width);
+	sceGuOffset(2048 - (screen_width/2),2048 - (screen_height/2));
+	sceGuViewport(2048,2048,screen_width,screen_height);
+	
+	sceGuDepthRange(65535,0);
+	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
+	sceGuFinish();
+	sceGuSync(0,0);
+
+	sceDisplayWaitVblankStart();
+	sceGuDisplay(1);
 }
 
 int Load_Play_AVI(char *path,u32 button){
@@ -342,15 +372,17 @@ int Load_Play_AVI(char *path,u32 button){
 	sceIoRead(_AVI_FILE,&AVI_Height,4);
 	
 	//check size
-	if((AVI_Width<769)&&(AVI_Height<513)){
-		AVI_WidthP2 =  (AVI_Width);
-		AVI_HeightP2 = next_pow2(AVI_Height);
-		if (AVI_Width > 512) {
-			AVI_WidthP2 = 768;
-			AVI_HeightP2 = 512;
-		}
-	} else return 0;
+	u32 buff_width = 512;
+	if ((AVI_Width!=480)&&( AVI_Width!=720)) return 0;
+	if ((AVI_Width==480)&&(AVI_Height!=272)) return 0;
+	//if((AVI_Width==720)&&(AVI_Height!=480)) return 0;
+	if (AVI_Width==480) buff_width = 512;
+	if (AVI_Width==720) buff_width = 768;
 
+	H264_max_frame_size	= 0xFFFF;
+	H264_buffer_size = H264_max_frame_size * H264_Buffer_Frames;
+	setup_GPU(buff_width,AVI_Width,AVI_Height);
+	
 	//look for movi
 	u32 offset2 = sceIoLseek32(_AVI_FILE,movi_offset,SEEK_SET);
 	while (!movi){
@@ -393,7 +425,7 @@ int Load_Play_AVI(char *path,u32 button){
 		AVI_start = sceIoLseek32(_AVI_FILE,movi_offset+movi_size+4,SEEK_SET);
 		
 		//Set video decoder
-		Set_H264_Decoder(&v_decode, 1024, 512, GU_PSM_8888);	
+		Set_H264_Decoder(&v_decode,buff_width, GU_PSM_8888);	
 		//Set audio decoder
 		Set_AAC_Decoder();
 		
@@ -451,7 +483,7 @@ int Load_Play_AVI(char *path,u32 button){
 				if (c.name == WB) {
 					sceIoLseek32(_AVI_FILE,c.offset+AVI_relative_offset, PSP_SEEK_SET);
 					sceIoRead(_AVI_FILE,aac_data_buffer0,c.size);
-					sceKernelSignalSema(AVI_Audio_SemaID, 1);//Tell ME to decode an audio AAC frame
+					sceKernelSignalSema(AVI_Audio_SemaID, 1);//Tell ME to decode 2 audio AAC frames
 					size+=16;
 					goto read_again;
 					//sceIoWaitAsync(_AVI_FILE,&result);
@@ -486,41 +518,12 @@ PSP_MODULE_INFO("H264_Test", 0, 1, 1);
 PSP_MAIN_THREAD_ATTR(PSP_THREAD_ATTR_USER);
 PSP_HEAP_SIZE_KB(-1024);
 
-#define BUF_WIDTH (512)
-#define SCR_WIDTH (480)
-#define SCR_HEIGHT (272)
 
 int main(int argc, char **argv){
 
 	//Controls
 	sceCtrlSetSamplingCycle(0);
 
-	// setup
-	fbp0 = (void*)0;
-	fbp1 = (void*)0x88000;
-	zbp = (void*)0x110000;
-
-	framebuffer = fbp1;
-	pspDebugScreenInit();
-	
-	sceGuInit();
-	sceGuStart(GU_DIRECT,list);
-	sceGuDrawBuffer(GU_PSM_8888,fbp1,BUF_WIDTH);
-	sceGuDispBuffer(SCR_WIDTH,SCR_HEIGHT,fbp0,BUF_WIDTH);
-	sceGuDepthBuffer(zbp,BUF_WIDTH);
-	sceGuOffset(2048 - (SCR_WIDTH/2),2048 - (SCR_HEIGHT/2));
-	sceGuViewport(2048,2048,SCR_WIDTH,SCR_HEIGHT);
-	sceGuDepthRange(65535,0);
-	sceGuScissor(0,0,SCR_WIDTH,SCR_HEIGHT);
-	sceGuEnable(GU_SCISSOR_TEST);
-	sceGuFrontFace(GU_CW);
-	sceGuClear(GU_COLOR_BUFFER_BIT|GU_DEPTH_BUFFER_BIT);
-	sceGuFinish();
-	sceGuSync(0,0);
-
-	sceDisplayWaitVblankStart();
-	sceGuDisplay(1);
-	
 	pspDebugScreenInit();
 	
 	sceUtilityLoadAvModule(PSP_AV_MODULE_AVCODEC);
